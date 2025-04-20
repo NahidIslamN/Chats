@@ -1,0 +1,60 @@
+{% extends "chat/base.html" %}
+
+{% block title %}New Chat - Web Messenger{% endblock %}
+
+{% block content %}
+<div class="container-fluid chat-container">
+    <div class="row h-100">
+        <div class="col-md-8 mx-auto p-3">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Start a New Chat</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for user in users %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center">
+                                        <div class="flex-shrink-0">
+                                            {% if user.profile.avatar %}
+                                            <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}" class="rounded-circle" width="50" height="50">
+                                            {% else %}
+                                            <i class="fas fa-user-circle fa-3x text-primary"></i>
+                                            {% endif %}
+                                        </div>
+                                        <div class="flex-grow-1 ms-3">
+                                            <h5 class="card-title mb-1">{{ user.username }}</h5>
+                                            <p class="card-text text-muted mb-2">{{ user.profile.status }}</p>
+                                            <span class="badge {% if user.profile.is_online %}bg-success{% else %}bg-secondary{% endif %}">
+                                                {% if user.profile.is_online %}Online{% else %}Offline{% endif %}
+                                            </span>
+                                        </div>
+                                        <div class="flex-shrink-0">
+                                            <form method="post" action="{% url 'chat:create_chat' %}">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="user_id" value="{{ user.id }}">
+                                                <button type="submit" class="btn btn-primary btn-sm">
+                                                    <i class="fas fa-comment"></i> Start Chat
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                No users available to chat with.
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

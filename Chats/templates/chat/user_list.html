@@ -1,0 +1,50 @@
+{% extends "chat/base.html" %}
+
+{% block title %}Users - Web Messenger{% endblock %}
+
+{% block content %}
+<div class="container-fluid chat-container">
+    <div class="row h-100">
+        <div class="col-md-8 mx-auto p-3">
+            <h4 class="mb-4">Users</h4>
+            <div class="row">
+                {% for user in users %}
+                <div class="col-md-6 mb-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-shrink-0">
+                                    {% if user.profile.avatar %}
+                                    <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}" class="rounded-circle" width="50" height="50">
+                                    {% else %}
+                                    <i class="fas fa-user-circle fa-3x text-primary"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h5 class="card-title mb-1">{{ user.username }}</h5>
+                                    <p class="card-text text-muted mb-2">{{ user.profile.status }}</p>
+                                    <span class="badge {% if user.profile.is_online %}bg-success{% else %}bg-secondary{% endif %}">
+                                        {% if user.profile.is_online %}Online{% else %}Offline{% endif %}
+                                    </span>
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <a href="{% url 'chat:create_chat' %}?user_id={{ user.id }}" class="btn btn-primary btn-sm">
+                                        <i class="fas fa-comment"></i> Message
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        No users available.
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

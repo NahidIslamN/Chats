@@ -1,0 +1,71 @@
+{% extends "chat/base.html" %}
+
+{% block title %}Chats - Web Messenger{% endblock %}
+
+{% block content %}
+<div class="container-fluid chat-container">
+    <div class="row h-100">
+        <!-- Sidebar with chat list -->
+        <div class="col-md-4 sidebar p-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">Chats</h5>
+                <a href="{% url 'chat:create_chat' %}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-plus"></i> New Chat
+                </a>
+            </div>
+            <div class="chat-list">
+                {% for room in chat_rooms %}
+                <a href="{% url 'chat:chat_room' room_name=room.name %}" class="text-decoration-none">
+                    <div class="chat-item p-3 border-bottom">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                {% if room.is_group %}
+                                <i class="fas fa-users fa-2x text-primary"></i>
+                                {% else %}
+                                <i class="fas fa-user fa-2x text-primary"></i>
+                                {% endif %}
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="mb-1">{{ room.name }}</h6>
+                                {% with last_message=room.messages.last %}
+                                {% if last_message %}
+                                <small class="text-muted">
+                                    {% if last_message.sender == user %}
+                                    You:
+                                    {% endif %}
+                                    {{ last_message.content|truncatechars:50 }}
+                                </small>
+                                {% endif %}
+                                {% endwith %}
+                            </div>
+                            <div class="flex-shrink-0 ms-2">
+                                {% with last_message=room.messages.last %}
+                                {% if last_message %}
+                                <small class="text-muted">
+                                    {{ last_message.timestamp|date:"g:i A" }}
+                                </small>
+                                {% endif %}
+                                {% endwith %}
+                            </div>
+                        </div>
+                    </div>
+                </a>
+                {% empty %}
+                <div class="text-center p-3">
+                    <p class="text-muted">No chats yet. Start a new conversation!</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Welcome message -->
+        <div class="col-md-8 d-flex align-items-center justify-content-center">
+            <div class="text-center">
+                <i class="fas fa-comments fa-4x text-primary mb-3"></i>
+                <h3>Welcome to Web Messenger</h3>
+                <p class="text-muted">Select a chat or start a new conversation</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

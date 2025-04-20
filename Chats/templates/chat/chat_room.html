@@ -1,0 +1,401 @@
+{% extends "chat/base.html" %}
+
+{% block title %}{{ room.name }} - Web Messenger{% endblock %}
+
+{% block extra_css %}
+<style>
+    .message-container {
+        height: calc(100vh - 300px);
+        overflow-y: auto;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 0.25rem;
+    }
+    .message {
+        max-width: 70%;
+        margin-bottom: 1rem;
+    }
+    .message.sent {
+        margin-left: auto;
+    }
+    .message.received {
+        margin-right: auto;
+    }
+    .message-time {
+        font-size: 0.75rem;
+        color: #6c757d;
+    }
+    .message-status {
+        font-size: 0.75rem;
+        margin-left: 0.5rem;
+    }
+    .message-status.read {
+        color: #28a745;
+    }
+    .message-status.unread {
+        color: #6c757d;
+    }
+    .participant-list {
+        height: calc(100vh - 56px);
+        overflow-y: auto;
+    }
+    .participant-item {
+        padding: 0.5rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .participant-item:hover {
+        background-color: #f8f9fa;
+    }
+    .online-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 5px;
+    }
+    .online-indicator.online {
+        background-color: #28a745;
+    }
+    .online-indicator.offline {
+        background-color: #dc3545;
+    }
+    .call-button {
+        margin-bottom: 1rem;
+    }
+    /* Incoming Call Modal Styles */
+    .incoming-call-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+    }
+    .incoming-call-content {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: white;
+        padding: 2rem;
+        border-radius: 10px;
+        text-align: center;
+        min-width: 300px;
+    }
+    .caller-info {
+        margin-bottom: 1.5rem;
+    }
+    .caller-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        margin-bottom: 1rem;
+    }
+    .caller-name {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+    .call-type {
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+    .call-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+    }
+    .call-btn {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        transition: all 0.3s ease;
+    }
+    .accept-call {
+        background-color: #28a745;
+        color: white;
+    }
+    .reject-call {
+        background-color: #dc3545;
+        color: white;
+    }
+    .call-btn:hover {
+        transform: scale(1.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-9">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>{{ room.name }}</h2>
+                <div>
+                    <button id="startVideoCall" class="btn btn-primary call-button">
+                        <i class="fas fa-video"></i> Start Video Call
+                    </button>
+                </div>
+            </div>
+            
+            <div class="alert" id="connectionStatus" role="alert" style="display: none;"></div>
+            
+            <div id="messageContainer" class="message-container">
+                {% for message in messages %}
+                <div class="message {% if message.sender == user %}sent{% else %}received{% endif %}">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-2 text-muted">{{ message.sender.username }}</h6>
+                            <p class="card-text">{{ message.content }}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="message-time">{{ message.timestamp|date:"g:i A" }}</small>
+                                {% if message.sender == user %}
+                                <small class="message-status {% if message.is_read %}read{% else %}unread{% endif %}">
+                                    <i class="fas fa-check"></i> {% if message.is_read %}Read{% else %}Sent{% endif %}
+                                </small>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="input-group mt-3">
+                <input type="text" id="messageInput" class="form-control" placeholder="Type a message...">
+                <div class="input-group-append">
+                    <button class="btn btn-primary" type="button" id="sendButton">Send</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Participants</h5>
+                </div>
+                <div class="participant-list">
+                    {% for participant in participants %}
+                    <div class="participant-item">
+                        <span class="online-indicator {% if participant.profile.is_online %}online{% else %}offline{% endif %}"></span>
+                        {{ participant.username }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Incoming Call Modal -->
+<div id="incomingCallModal" class="incoming-call-modal">
+    <div class="incoming-call-content">
+        <div class="caller-info">
+            <div class="caller-avatar">
+                <i class="fas fa-user fa-3x"></i>
+            </div>
+            <div class="caller-name" id="callerName">Incoming Call</div>
+            <div class="call-type" id="callType">Video Call</div>
+        </div>
+        <div class="call-buttons">
+            <button id="acceptCall" class="call-btn accept-call">
+                <i class="fas fa-phone"></i>
+            </button>
+            <button id="rejectCall" class="call-btn reject-call">
+                <i class="fas fa-phone-slash"></i>
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const roomName = "{{ room.name }}";
+    const currentUser = "{{ user.username }}";
+    let chatSocket = null;
+    let callSocket = null;
+    let localStream = null;
+    let peerConnection = null;
+    let isInCall = false;
+
+    // Initialize WebSocket connections
+    function initializeWebSockets() {
+        // Chat WebSocket
+        chatSocket = new WebSocket(
+            'ws://' + window.location.host + '/ws/chat/' + roomName + '/'
+        );
+
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            if (data.type === 'call_offer') {
+                handleIncomingCall(data);
+            } else {
+                appendMessage(data);
+            }
+        };
+
+        // Call WebSocket
+        callSocket = new WebSocket(
+            'ws://' + window.location.host + '/ws/call/' + roomName + '/'
+        );
+
+        callSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            handleCallMessage(data);
+        };
+    }
+
+    // Handle incoming call
+    function handleIncomingCall(data) {
+        if (!isInCall) {
+            document.getElementById('callerName').textContent = data.username;
+            document.getElementById('callType').textContent = data.is_video ? 'Video Call' : 'Audio Call';
+            document.getElementById('incomingCallModal').style.display = 'block';
+        }
+    }
+
+    // Start video call
+    document.getElementById('startVideoCall').onclick = async function() {
+        if (!isInCall) {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
+                });
+                
+                const configuration = {
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                };
+                
+                peerConnection = new RTCPeerConnection(configuration);
+                
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+                
+                peerConnection.onicecandidate = event => {
+                    if (event.candidate) {
+                        callSocket.send(JSON.stringify({
+                            type: 'ice_candidate',
+                            candidate: event.candidate
+                        }));
+                    }
+                };
+                
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                
+                callSocket.send(JSON.stringify({
+                    type: 'call_offer',
+                    offer: offer,
+                    is_video: true,
+                    username: currentUser
+                }));
+                
+                isInCall = true;
+                window.open(`/chat/call/${roomName}/`, 'Video Call', 'width=800,height=600');
+                
+            } catch (error) {
+                console.error('Error starting call:', error);
+                alert('Failed to access camera/microphone');
+            }
+        }
+    };
+
+    // Accept call
+    document.getElementById('acceptCall').onclick = async function() {
+        document.getElementById('incomingCallModal').style.display = 'none';
+        isInCall = true;
+        window.open(`/chat/call/${roomName}/`, 'Video Call', 'width=800,height=600');
+    };
+
+    // Reject call
+    document.getElementById('rejectCall').onclick = function() {
+        document.getElementById('incomingCallModal').style.display = 'none';
+        callSocket.send(JSON.stringify({
+            type: 'call_rejected',
+            username: currentUser
+        }));
+    };
+
+    // Handle call messages
+    function handleCallMessage(data) {
+        switch(data.type) {
+            case 'call_offer':
+                handleIncomingCall(data);
+                break;
+            case 'call_answer':
+                if (peerConnection) {
+                    peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+                }
+                break;
+            case 'ice_candidate':
+                if (peerConnection) {
+                    peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+                }
+                break;
+            case 'call_rejected':
+                alert(`Call rejected by ${data.username}`);
+                break;
+            case 'call_ended':
+                alert(`Call ended by ${data.username}`);
+                break;
+        }
+    }
+
+    // Append message to chat
+    function appendMessage(data) {
+        const messageContainer = document.getElementById('messageContainer');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${data.username === currentUser ? 'sent' : 'received'}`;
+        
+        messageDiv.innerHTML = `
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">${data.username}</h6>
+                    <p class="card-text">${data.message}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="message-time">${new Date().toLocaleTimeString()}</small>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        messageContainer.appendChild(messageDiv);
+        messageContainer.scrollTop = messageContainer.scrollHeight;
+    }
+
+    // Send message
+    document.getElementById('sendButton').onclick = function() {
+        const messageInput = document.getElementById('messageInput');
+        const message = messageInput.value.trim();
+        
+        if (message && chatSocket.readyState === WebSocket.OPEN) {
+            chatSocket.send(JSON.stringify({
+                message: message,
+                username: currentUser
+            }));
+            messageInput.value = '';
+        }
+    };
+
+    // Handle Enter key
+    document.getElementById('messageInput').onkeypress = function(e) {
+        if (e.key === 'Enter') {
+            document.getElementById('sendButton').click();
+        }
+    };
+
+    // Initialize WebSockets when page loads
+    initializeWebSockets();
+</script>
+{% endblock %} 

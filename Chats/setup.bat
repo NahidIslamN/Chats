@@ -1,0 +1,13 @@
+@echo off
+echo Setting up environment...
+set PYTHONPATH=%cd%
+set DJANGO_SETTINGS_MODULE=messenger.settings
+
+echo Running migrations...
+C:\Users\nnnn1\AppData\Local\Programs\Python\Python313\python.exe manage.py migrate
+
+echo Creating test data...
+C:\Users\nnnn1\AppData\Local\Programs\Python\Python313\python.exe create_test_data.py
+
+echo Setup completed! Press any key to exit...
+pause 
